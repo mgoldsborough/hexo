@@ -98,18 +98,32 @@ describe('config flag handling', () => {
     '}'
   ].join('\n');
 
+  var testJson3 = [
+    '{',
+    '"author": "james bond",',
+    '"favorites": {',
+    '  "food": "martini",',
+    '  "ice_cream": "vanilla"',
+    '  }',
+    '}'
+  ].join('\n');
+
   before(() => {
     fs.writeFileSync(base + 'test1.yml', testYaml1);
     fs.writeFileSync(base + 'test2.yml', testYaml2);
     fs.writeFileSync(base + 'test1.json', testJson1);
     fs.writeFileSync(base + 'test2.json', testJson2);
+    fs.writeFileSync('/tmp/test3.json', testJson3);
   });
 
   afterEach(() => {
     hexo.log.reader = [];
   });
 
-  after(() => fs.rmdir(hexo.base_dir));
+  after(() => {
+    fs.rmdirSync(hexo.base_dir);
+    fs.unlinkSync('/tmp/test3.json');
+  });
 
   it('no file', () => {
     mcp(base).should.equal(base + '_config.yml');
@@ -155,6 +169,14 @@ describe('config flag handling', () => {
     hexo.log.reader[7].type.should.eql('error');
     hexo.log.reader[7].msg.should.eql('No config files found.'
                                      + ' Using _config.yml.');
+  });
+
+  it('combine config output with absolute paths', () => {
+    var combinedPath = pathFn.join(base, '_multiconfig.yml');
+
+    mcp(base, 'test1.json,/tmp/test3.json').should.eql(combinedPath);
+    hexo.log.reader[0].type.should.eql('info');
+    hexo.log.reader[0].msg.should.eql('Config based on 2 files');
   });
 
   it('2 YAML overwrite', () => {
@@ -204,5 +226,14 @@ describe('config flag handling', () => {
     config.author.should.eql('foo');
     config.favorites.food.should.eql('sushi');
     config.type.should.eql('dinosaur');
+  });
+
+  it('2 JSON overwrite with absolute path', () => {
+    var config = fs.readFileSync(mcp(base, 'test1.json,/tmp/test3.json'));
+    config = yml.safeLoad(config);
+
+    config.author.should.eql('james bond');
+    config.favorites.food.should.eql('martini');
+    config.type.should.eql('elephant');
   });
 });
